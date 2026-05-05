@@ -1,0 +1,20 @@
+{
+  "name": "cc-lab-project",
+  "version": "1.0.0",
+  "description": "Welcome to the Cloud Computing Load Balancer Simulator!",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run start-worker1\" \"npm run start-worker2\" \"npm run start-worker3\" \"npm run start-lb\" \"npm run start-frontend\"",
+    "start-worker1": "cd worker-node && set PORT=5001 && npm start",
+    "start-worker2": "cd worker-node && set PORT=5002 && npm start",
+    "start-worker3": "cd worker-node && set PORT=5003 && npm start",
+    "start-lb": "cd load-balancer && npm start",
+    "start-frontend": "cd frontend && npm run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
