@@ -13,10 +13,30 @@ const PORT = process.env.PORT || 5000;
 
 // The backend worker servers
 const BACKENDS = [
-    { id: 'Node-5001', url: 'http://127.0.0.1:5001' },
-    { id: 'Node-5002', url: 'http://127.0.0.1:5002' },
-    { id: 'Node-5003', url: 'http://127.0.0.1:5003' }
+    { id: 'Node-5001', url: 'http://127.0.0.1:5001', isHealthy: true },
+    { id: 'Node-5002', url: 'http://127.0.0.1:5002', isHealthy: true },
+    { id: 'Node-5003', url: 'http://127.0.0.1:5003', isHealthy: true }
 ];
+
+// Active Health Checker (Heartbeat)
+setInterval(async () => {
+    for (let backend of BACKENDS) {
+        try {
+            const res = await fetch(`${backend.url}/health`);
+            const data = await res.json();
+            if (res.ok && data.status === 'healthy') {
+                if (!backend.isHealthy) console.log(`[Load Balancer] ${backend.id} is back online!`);
+                backend.isHealthy = true;
+            } else {
+                if (backend.isHealthy) console.warn(`[Load Balancer] ${backend.id} failed health check (Status: ${res.status}). Marking offline.`);
+                backend.isHealthy = false;
+            }
+        } catch (error) {
+            if (backend.isHealthy) console.warn(`[Load Balancer] ${backend.id} is unreachable. Marking offline.`);
+            backend.isHealthy = false;
+        }
+    }
+}, 2000);
 
 let currentAlgorithm = 'RoundRobin'; // 'RoundRobin' or 'Random'
 let roundRobinIndex = 0;
@@ -41,15 +61,24 @@ app.post('/lb/algorithm', express.json(), (req, res) => {
 
 // Custom logic to select the target based on algorithm
 const selectTarget = () => {
+    const healthyBackends = BACKENDS.filter(b => b.isHealthy);
+    
+    if (healthyBackends.length === 0) {
+        throw new Error("No healthy backends available!");
+    }
+
     if (currentAlgorithm === 'RoundRobin') {
-        const target = BACKENDS[roundRobinIndex].url;
-        roundRobinIndex = (roundRobinIndex + 1) % BACKENDS.length;
+        // Ensure index doesn't go out of bounds if a server dropped
+        if (roundRobinIndex >= healthyBackends.length) roundRobinIndex = 0;
+        
+        const target = healthyBackends[roundRobinIndex].url;
+        roundRobinIndex = (roundRobinIndex + 1) % healthyBackends.length;
         return target;
     } else if (currentAlgorithm === 'Random') {
-        const randomIndex = Math.floor(Math.random() * BACKENDS.length);
-        return BACKENDS[randomIndex].url;
+        const randomIndex = Math.floor(Math.random() * healthyBackends.length);
+        return healthyBackends[randomIndex].url;
     }
-    return BACKENDS[0].url; // Default fallback
+    return healthyBackends[0].url; // Default fallback
 };
 
 // Proxy middleware

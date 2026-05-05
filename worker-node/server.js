@@ -37,11 +37,25 @@ const simulateWork = () => {
     return new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 150) + 50));
 };
 
+let isCrashed = false;
+
 app.get('/health', (req, res) => {
+    if (isCrashed) {
+        return res.status(500).json({ status: 'crashed', nodeId: NODE_ID });
+    }
     res.status(200).json({ status: 'healthy', nodeId: NODE_ID });
 });
 
+app.post('/toggle-crash', (req, res) => {
+    isCrashed = !isCrashed;
+    console.log(`[${NODE_ID}] State changed. isCrashed: ${isCrashed}`);
+    res.json({ success: true, isCrashed, nodeId: NODE_ID });
+});
+
 app.get('/process', async (req, res) => {
+    if (isCrashed) {
+        return res.status(500).json({ error: 'Node is currently offline/crashed.' });
+    }
     const startTime = Date.now();
     
     await simulateWork();

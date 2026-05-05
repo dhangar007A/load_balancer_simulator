@@ -36,6 +36,17 @@ function App() {
     }
   };
 
+  const toggleCrash = async (url) => {
+    try {
+      await fetch(`${url}/toggle-crash`, { method: 'POST' });
+      // The load balancer's heartbeat will detect this and update lbStatus within 2 seconds.
+      // But we can also immediately trigger a status fetch just to be safe.
+      setTimeout(fetchLbStatus, 2100); 
+    } catch (e) {
+      console.error("Failed to toggle crash", e);
+    }
+  };
+
   const sendRequests = async () => {
     setIsProcessing(true);
     setLogs([]);
@@ -105,8 +116,8 @@ function App() {
                     <div key={backend.id} className="relative overflow-hidden rounded-2xl bg-gray-900 border border-gray-800 p-6 flex flex-col items-center justify-center group hover:border-cyan-500 transition-colors">
                         <div className="absolute top-0 right-0 p-4">
                             <span className="flex h-3 w-3 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                              {backend.isHealthy && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
+                              <span className={`relative inline-flex rounded-full h-3 w-3 ${backend.isHealthy ? 'bg-green-500' : 'bg-red-500'}`}></span>
                             </span>
                         </div>
                         <h2 className="text-2xl font-bold text-gray-200">{backend.id}</h2>
@@ -118,7 +129,14 @@ function App() {
                         <div className="w-full bg-gray-800 rounded-full h-2">
                             <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div>
                         </div>
-                        <div className="text-xs text-gray-400 mt-2 self-end">{percentage}% Load</div>
+                        <div className="text-xs text-gray-400 mt-2 self-end mb-4">{percentage}% Load</div>
+                        
+                        <button 
+                            onClick={() => toggleCrash(backend.url)}
+                            className={`w-full py-2 rounded-lg font-bold text-sm transition-colors ${backend.isHealthy ? 'bg-red-900/50 hover:bg-red-800 text-red-400 border border-red-800' : 'bg-green-900/50 hover:bg-green-800 text-green-400 border border-green-800'}`}
+                        >
+                            {backend.isHealthy ? 'Simulate Crash' : 'Revive Server'}
+                        </button>
                     </div>
                 )
             })}
